@@ -7,7 +7,6 @@ import smtplib
 
 headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36'}
 
-#URL = 'https://www.amazon.de/Unicorn-Project-Developers-Disruption-Thriving/dp/1942788762/ref=pd_ys_c_rfy_186606_0?_encoding=UTF8&pd_rd_i=1942788762&pd_rd_r=0XD62VZM3E2D6M9EKGPF&pd_rd_w=ivmkE&pd_rd_wg=b2MD7&pf_rd_p=b590e2fb-7f7b-462f-b256-26d8215ddf09&pf_rd_r=0XD62VZM3E2D6M9EKGPF&psc=1&refRID=9YSKF6ZPD9E20X0XCZ1Z'
 
 
 #--------------------funciones--------------------------------------
@@ -24,7 +23,7 @@ def conexionBBDD():
 					CREATE TABLE  TRACKER 
 					(
 					ID INTEGER PRIMARY KEY AUTOINCREMENT,
-					MESSAGE INTEGER DEFAULT 0,
+					MESSAGE_SEND INTEGER DEFAULT 0,
 					NAME  VARCHAR(50) ,
 					LINK VARCHAR(250) ,
 					PRICE REAL, 
@@ -82,15 +81,15 @@ def read():
 		linksToTrack=miCursor.fetchall()
 
 		if linksToTrack is None:
-			messagebox.showwarning("! Atention","you need to insert a valid Name ")
+			messagebox.showwarning("Atention !","you need to insert a valid Name ")
 		else:
 				for elements in linksToTrack:
 						
 					#miId.set(elements[0])
-					miName.set(elements[1])
-					miLink.set(elements[2])
-					miPrice.set(elements[3])
-					textoComment.insert(1.0,elements[4])
+					miName.set(elements[2])
+					miLink.set(elements[3])
+					miPrice.set(elements[4])
+					textoComment.insert(1.0,elements[5])
 
 				miConexion.commit()
     
@@ -104,17 +103,18 @@ def update():
 	miCursor=miConexion.cursor()
 
 	try:
-		miCursor.execute("UPDATE TRACKER SET NAME='" + miName.get() +
-							"',LINK = '" + miLink.get() +
+		miCursor.execute("UPDATE TRACKER SET NAME  = '" + miName.get() +
+			                "',LINK = '" + miLink.get() +
 							"',PRICE = '" + miPrice.get() +
-							"',COMENTARIOS = '" + textoComment.get("1.0", END) +	
-    					 "' WHERE NAME=" + miName.get() )
+							"',COMMENT = '" + textoComment.get("1.0", END) +	
+    					    "' WHERE NAME='" + miName.get()+"'" )
 		miConexion.commit()
-		messagebox.showinfo("User","record succesfully update")
+		messagebox.showinfo("User","record succesfully Update")
+		cleanFields()
 
 	except:		
     		
-    		messagebox.showwarning("! Atentio","to make the update you need a valid name")
+    		messagebox.showwarning("Atention!","to make the update you need a valid name")
 
 def delete():
 
@@ -123,7 +123,7 @@ def delete():
 	miCursor=miConexion.cursor()
 
 	try:
-		miCursor.execute("DELETE FROM TRACKER WHERE NAME=" + miName.get() )
+		miCursor.execute("DELETE FROM TRACKER WHERE NAME='" + miName.get() +"'") 
 		miConexion.commit()
 		messagebox.showinfo("Link","record succesfully delete")
 
@@ -147,11 +147,20 @@ def check_price():
 
 	
 	if (converted_price < float(miPrice.get())):
-		messagebox.showinfo("Name","The article {} hat already the desire price".miName.get())
+		messagebox.showinfo("Name",'The article {} hat already the desire price'.format(miName.get()))
 		send_mail(converted_price,article)
+		# that element doesnt need to be continue tracked, it already have the desire price so we delete it.
 
-	else:
-		messagebox.showinfo("Name","the article is not already to the desired price, we will continue checking it")
+	else: # we just want to send the message 1 time not every loop 
+		if (miMessage.get() == 0):
+			messagebox.showinfo("Name","the article is not already to the desired price, we will continue checking it")
+			cleanFields()
+			miMessage.set(1)
+		else:
+			cleanFields()
+
+
+
 
 def price_2decimals(price):
 	price_aux=price
@@ -209,6 +218,7 @@ miId=StringVar()
 miName=StringVar()
 miPrice=StringVar()
 miLink=StringVar()
+miMessage =IntVar()
 
 
 cuadroName=Entry(miFrame,textvariable=miName)
@@ -279,6 +289,9 @@ botonBorrar.grid(row=1,column=3,sticky="e",padx=10,pady=10)
 
 
 botonBorrar=Button(miFrame2,text="Track",command=check_price)
+botonBorrar.grid(row=2,column=2,sticky="e",padx=10,pady=10)
+
+botonBorrar=Button(miFrame2,text="Track_All",command=check_price)
 botonBorrar.grid(row=2,column=2,sticky="e",padx=10,pady=10)
 
 
