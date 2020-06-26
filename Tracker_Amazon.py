@@ -135,9 +135,9 @@ def delete():
 
 #check encoder
 # print(soup.prettify().encode('utf-8'))
-def check_price():
-
-	page = requests.get(miLink.get(),headers=headers)
+def check_price(Name,link,DesirePrice):
+    
+	page = requests.get(link,headers=headers)
 	encoding = page.encoding if 'charset' in page.headers.get('content-type', '').lower() else None
 	soup = BeautifulSoup(page.content, from_encoding=encoding,features="lxml")             # the new parametes to soup.                  
 	price = soup.find("span",class_="a-size-base a-color-price a-color-price").get_text()
@@ -146,23 +146,25 @@ def check_price():
 	converted_price=float(price_2decimals(price))
 
 	
-	if (converted_price < float(miPrice.get())):
-		messagebox.showinfo("Name",'The article {} hat already the desire price'.format(miName.get()))
-		send_mail(converted_price,article)
+	if (converted_price < float(DesirePrice)):
+		messagebox.showinfo("Name",'The article {} hat already the desire price {} €, Email was sent'.format(Name,DesirePrice))
+		send_mail(converted_price,article,link)
 		# that element doesnt need to be continue tracked, it already have the desire price so we delete it.
 
 	else: # we just want to send the message 1 time not every loop 
-		if (miMessage.get() == 0):
-			messagebox.showinfo("Name","the article is not already to the desired price, we will continue checking it")
+		'''if (miMessage.get() == 0):
+			messagebox.showinfo("Name","The article {} is not already to the desired price {} €, we will continue checking it".format(Name,DesirePrice))
 			cleanFields()
 			miMessage.set(1)
 		else:
 			cleanFields()
-
+        '''
+		messagebox.showinfo("Name","The article {} is not already to the desired price {} €, we will continue checking it".format(Name,DesirePrice))
 
 
 
 def price_2decimals(price):
+
 	price_aux=price
 	#find the first digit avoiding situations like price = "n/      34455,22 &shhb€" and take 2 decimals
 	for i, c in enumerate(price_aux):
@@ -174,19 +176,50 @@ def price_2decimals(price):
 
 #to send email you need enable 2 steps verification
 
-def send_mail(price,article):
+def send_mail(price,article,Link):
 	server = smtplib.SMTP('smtp.gmail.com',587)
 	server.ehlo()
 	server.starttls()
 	server.ehlo()
 	server.login('enriquetest1987@gmail.com','xwydfkcfscavgkla')
 	subject = "the price the article  fell down! "
-	body="the price of {} in wich you were interested fell downe the price is now {} check the amazon link {}".format(article,price,miLink.get())
+	body="the price of {} in which you were interested fell down !! the price is now {} , check the amazon link {}".format(article,price,Link)
 
 	msg= f"Subject: {subject}\n\n{body}"
 	server.sendmail('enriquebenito87@gmail.com','enriquebenito1987@gmail.com',msg)
 	print("heyy email was sended")
 	server.quit()
+
+
+def showAll():
+
+	miConexion=sqlite3.connect("Elementos")
+	miCursor=miConexion.cursor()
+
+	miCursor.execute("SELECT *  FROM TRACKER")
+	records = miCursor.fetchall()
+
+
+
+	print_records=""
+	for record in records:
+		print_records +=str("Name: " + record[2]) + ", Desired Price :" + str(record[4]) + "\n"
+
+	query_label= Label(miFrame3,text=print_records)
+	query_label.grid(row=8,column=0,columnspan=2)
+
+
+
+def TrackAll():
+	miConexion=sqlite3.connect("Elementos")
+	miCursor=miConexion.cursor()
+
+	miCursor.execute("SELECT *  FROM TRACKER")
+	records = miCursor.fetchall()
+
+	for record in records:
+		check_price(record[2],record[3],record[4]) #name, link , desiredPrice
+
 
 
 
@@ -275,6 +308,7 @@ miFrame2.pack()
 botonCrear=Button(miFrame2,text="Create",command=create)
 botonCrear.grid(row=1,column=0,sticky="e",padx=10,pady=10)
 
+
 botonLeer=Button(miFrame2,text="Read",command=read)
 botonLeer.grid(row=1,column=1,sticky="e",padx=10,pady=10)
 
@@ -288,11 +322,21 @@ botonBorrar=Button(miFrame2,text="Delete",command=delete)
 botonBorrar.grid(row=1,column=3,sticky="e",padx=10,pady=10)
 
 
-botonBorrar=Button(miFrame2,text="Track",command=check_price)
-botonBorrar.grid(row=2,column=2,sticky="e",padx=10,pady=10)
 
-botonBorrar=Button(miFrame2,text="Track_All",command=check_price)
-botonBorrar.grid(row=2,column=2,sticky="e",padx=10,pady=10)
+botonTrackear=Button(miFrame2,text="Track_All",command=TrackAll)
+botonTrackear.grid(row=2,column=2,sticky="e",padx=10,pady=10)
+
+botonShow=Button(miFrame2,text="Show_All",command=showAll)
+botonShow.grid(row=2,column=1,sticky="e",padx=10,pady=10)
+
+#---------------------------------- Code to show ---------------------------------#
+
+miFrame3=Frame(root)
+
+miFrame3.pack()
+
+botonCrear=Button(miFrame2,text="Create",command=create)
+botonCrear.grid(row=1,column=0,sticky="e",padx=10,pady=10)
 
 
 root.mainloop()
