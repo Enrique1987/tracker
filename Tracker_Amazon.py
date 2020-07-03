@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+Juli 2020
+@author: Enrique Benito Casado
+@Email: Enriquebenito1987@gmail.com
+
+"""
+
 from tkinter import *
 from tkinter import messagebox
 import sqlite3
