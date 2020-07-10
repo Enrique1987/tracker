@@ -7,5 +7,5 @@ and when you want you can check all you products. If one of the objects to track
 
 *  Tkinter
 *  Sqlite
-*  eatifulsoup  
+*  Beatifulsoup  Bs4
 
