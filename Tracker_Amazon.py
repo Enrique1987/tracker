@@ -1,350 +1,168 @@
 # -*- coding: utf-8 -*-
 """
-Juli 2020
+Updated: February 11, 2025
 @author: Enrique Benito Casado
-@Email: Enriquebenito1987@gmail.com
-
+@Email: enriquebenito1987@gmail.com
 """
 
-from tkinter import *
-from tkinter import messagebox
 import sqlite3
 import requests
-from bs4 import BeautifulSoup
 import smtplib
+from bs4 import BeautifulSoup
+from tkinter import Tk, Frame, Menu, Label, Entry, Text, Button, Scrollbar, messagebox, StringVar, IntVar, END
 
-headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36'}
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36"}
+DB_NAME = "Elementos.db"
 
+# -------------------- Database Functions ---------------------- #
 
-
-#--------------------funciones--------------------------------------
-
-def conexionBBDD():
-
-
-		miConexion=sqlite3.connect("Elementos")
-
-		miCursor=miConexion.cursor()
-
-		try:
-				miCursor.execute('''
-					CREATE TABLE  TRACKER 
-					(
-					ID INTEGER PRIMARY KEY AUTOINCREMENT,
-					MESSAGE_SEND INTEGER DEFAULT 0,
-					NAME  VARCHAR(50) ,
-					LINK VARCHAR(250) ,
-					PRICE REAL, 
-					COMMENT VARCHAR(100))
-
-					''')
-				messagebox.showinfo("BBDD","BBDD created succesfully")
-
-				miConexion.commit()
+def connect_db():
+    """Create database and table if not exists."""
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS TRACKER (
+                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    MESSAGE_SEND INTEGER DEFAULT 0,
+                    NAME TEXT,
+                    LINK TEXT,
+                    PRICE REAL,
+                    COMMENT TEXT
+                )
+            ''')
+        messagebox.showinfo("Database", "Connected successfully!")
+    except sqlite3.Error as e:
+        messagebox.showerror("Database Error", str(e))
 
 
-		except:
+def execute_query(query, params=()):
+    """Helper function to execute database queries."""
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            conn.commit()
+            return cursor.fetchall()
+    except sqlite3.Error as e:
+        messagebox.showerror("Database Error", str(e))
+        return None
 
-				messagebox.showwarning("! Atention"," the bbd already exists")
+# -------------------- Application Functions ---------------------- #
 
+def clean_fields():
+    miName.set("")
+    miLink.set("")
+    miPrice.set("")
+    textoComment.delete(1.0, END)
 
-def ExitApp():
-
-	value= messagebox.askquestion("salir", "do you want to exit ?")
-
-	if value=="yes":
-			root.destroy()
-
-def cleanFields():
-
-		miName.set("")
-		miLink.set("")
-		miPrice.set("")
-		textoComment.delete(1.0,END)
 
 def create():
-	miConexion=sqlite3.connect("Elementos")
+    execute_query("""
+        INSERT INTO TRACKER (NAME, LINK, PRICE, COMMENT)
+        VALUES (?, ?, ?, ?)""", (miName.get(), miLink.get(), miPrice.get(), textoComment.get("1.0", END).strip()))
+    messagebox.showinfo("Success", "Record inserted successfully!")
+    clean_fields()
 
-	miCursor=miConexion.cursor()
-
-	miCursor.execute("INSERT INTO TRACKER VALUES (NULL,NULL, '" + miName.get() +
-
-			"','" +miLink.get() +
-			"','" +miPrice.get() +
-			"','" +textoComment.get("1.0", END) + "')")
-
-	miConexion.commit()
-
-	messagebox.showinfo(" BBDD","record inserted succesfully ")
-	cleanFields()
 
 def read():
+    records = execute_query("SELECT * FROM TRACKER WHERE NAME = ?", (miName.get(),))
+    if records:
+        miName.set(records[0][2])
+        miLink.set(records[0][3])
+        miPrice.set(records[0][4])
+        textoComment.insert(1.0, records[0][5])
+    else:
+        messagebox.showwarning("Warning", "No record found!")
 
-	miConexion=sqlite3.connect("Elementos")
-
-	miCursor=miConexion.cursor()
-
-	try:
-		miCursor.execute("SELECT * FROM TRACKER WHERE NAME='" + miName.get()+"'")
-		linksToTrack=miCursor.fetchall()
-
-		if linksToTrack is None:
-			messagebox.showwarning("Atention !","you need to insert a valid Name ")
-		else:
-				for elements in linksToTrack:
-						
-					#miId.set(elements[0])
-					miName.set(elements[2])
-					miLink.set(elements[3])
-					miPrice.set(elements[4])
-					textoComment.insert(1.0,elements[5])
-
-				miConexion.commit()
-    
-	except:		
-    		
-    		messagebox.showwarning("! Atencion","to read the info you need to insert a valid name ")
 
 def update():
+    execute_query("""
+        UPDATE TRACKER SET NAME = ?, LINK = ?, PRICE = ?, COMMENT = ?
+        WHERE NAME = ?""", (miName.get(), miLink.get(), miPrice.get(), textoComment.get("1.0", END).strip(), miName.get()))
+    messagebox.showinfo("Success", "Record updated successfully!")
+    clean_fields()
 
-	miConexion=sqlite3.connect("Elementos")
-	miCursor=miConexion.cursor()
-
-	try:
-		miCursor.execute("UPDATE TRACKER SET NAME  = '" + miName.get() +
-			                "',LINK = '" + miLink.get() +
-							"',PRICE = '" + miPrice.get() +
-							"',COMMENT = '" + textoComment.get("1.0", END) +	
-    					    "' WHERE NAME='" + miName.get()+"'" )
-		miConexion.commit()
-		messagebox.showinfo("User","record succesfully Update")
-		cleanFields()
-
-	except:		
-    		
-    		messagebox.showwarning("Atention!","to make the update you need a valid name")
 
 def delete():
-
-	miConexion=sqlite3.connect("Elementos")
-
-	miCursor=miConexion.cursor()
-
-	try:
-		miCursor.execute("DELETE FROM TRACKER WHERE NAME='" + miName.get() +"'") 
-		miConexion.commit()
-		messagebox.showinfo("Link","record succesfully delete")
-
-	except:		
-    		
-    		messagebox.showwarning("! Atention","to delete the record you need a valid Name")
-
-
-
-#check encoder
-# print(soup.prettify().encode('utf-8'))
-def check_price(Name,link,DesirePrice):
-    
-	page = requests.get(link,headers=headers)
-	encoding = page.encoding if 'charset' in page.headers.get('content-type', '').lower() else None
-	soup = BeautifulSoup(page.content, from_encoding=encoding,features="lxml")             # the new parametes to soup.                  
-	price = soup.find("span",class_="a-size-base a-color-price a-color-price").get_text()
-	article = soup.find("span", id="productTitle").get_text()
-
-	converted_price=float(price_2decimals(price))
-
-	
-	if (converted_price < float(DesirePrice)):
-		messagebox.showinfo("Name",'The article {} hat already the desire price {} €, Email was sent'.format(Name,DesirePrice))
-		send_mail(converted_price,article,link)
-		# that element doesnt need to be continue tracked, it already have the desire price so we delete it.
-
-	else: # we just want to send the message 1 time not every loop 
-		'''if (miMessage.get() == 0):
-			messagebox.showinfo("Name","The article {} is not already to the desired price {} €, we will continue checking it".format(Name,DesirePrice))
-			cleanFields()
-			miMessage.set(1)
-		else:
-			cleanFields()
-        '''
-		messagebox.showinfo("Name","The article {} is not already to the desired price {} €, we will continue checking it".format(Name,DesirePrice))
-
-
-
-def price_2decimals(price):
-
-	price_aux=price
-	#find the first digit avoiding situations like price = "n/      34455,22 &shhb€" and take 2 decimals
-	for i, c in enumerate(price_aux):
-	    if c.isdigit():
-	        firstDigit = i
-	        break
-	coma=price_aux.find(",")+3
-	return price_aux[firstDigit:coma].replace(",",".")
-
-#to send email you need enable 2 steps verification
-
-def send_mail(price,article,Link):
-	server = smtplib.SMTP('smtp.gmail.com',587)
-	server.ehlo()
-	server.starttls()
-	server.ehlo()
-	server.login('enriquetest1987@gmail.com','xwydfkcfscavgkla')
-	subject = "the price the article  fell down! "
-	body="the price of {} in which you were interested fell down !! the price is now {} , check the amazon link {}".format(article,price,Link)
-
-	msg= f"Subject: {subject}\n\n{body}"
-	server.sendmail('enriquebenito87@gmail.com','enriquebenito1987@gmail.com',msg)
-	print("heyy email was sended")
-	server.quit()
-
-
-def showAll():
-
-	miConexion=sqlite3.connect("Elementos")
-	miCursor=miConexion.cursor()
-
-	miCursor.execute("SELECT *  FROM TRACKER")
-	records = miCursor.fetchall()
-
-
-
-	print_records=""
-	for record in records:
-		print_records +=str("Name: " + record[2]) + ", Desired Price :" + str(record[4]) + "\n"
-
-	query_label= Label(miFrame3,text=print_records)
-	query_label.grid(row=8,column=0,columnspan=2)
-
-
-
-def TrackAll():
-	miConexion=sqlite3.connect("Elementos")
-	miCursor=miConexion.cursor()
-
-	miCursor.execute("SELECT *  FROM TRACKER")
-	records = miCursor.fetchall()
-
-	for record in records:
-		check_price(record[2],record[3],record[4]) #name, link , desiredPrice
-
-
-
-
-#-------------------------------- End funktions --------------------------#
-
-root=Tk()
-
-barraMenu=Menu(root)
-root.config(menu=barraMenu,width=300,height=300)
-
-bbddMenu=Menu(barraMenu,tearoff=0)
-bbddMenu.add_command(label="Connect",command=conexionBBDD)
-bbddMenu.add_command(label="Exit",command=ExitApp)
-
-
-barraMenu.add_cascade(label="BBDD",menu=bbddMenu)
-
-
-
-
-#----------------- cominzo de campos ----------------------------#
-
-miFrame=Frame(root)
-miFrame.pack()
-
-
-
-miId=StringVar()
-miName=StringVar()
-miPrice=StringVar()
-miLink=StringVar()
-miMessage =IntVar()
-
-
-cuadroName=Entry(miFrame,textvariable=miName)
-cuadroName.grid(row=1,column=1,padx=10,pady=10)
-cuadroName.config(justify="right")
-
-cuadroLink=Entry(miFrame,textvariable=miLink)
-cuadroLink.grid(row=2,column=1,padx=20,pady=10)
-cuadroLink.config(justify="right")
-
-cuadroPrice=Entry(miFrame,textvariable=miPrice)
-cuadroPrice.grid(row=3,column=1,padx=10,pady=10)
-cuadroPrice.config(justify="right")
-
-
-textoComment=Text(miFrame,width=16,height=5)
-textoComment.grid(row=4,column=1,padx=10,pady=10)
-scrollVert=Scrollbar(miFrame,command=textoComment.yview)
-scrollVert.grid(row=4,column=2,sticky="nsew")
-
-
-textoComment.config(yscrollcommand=scrollVert.set)
-
-#-------------------------------------- Texto en campos -------------------- ''
-
-#idLabel=Label(miFrame,text="Id:")
-#idLabel.grid(row=0,column=0,sticky="e",padx=10,pady=10)
-
-idLabel=Label(miFrame,text="Object to track:")
-idLabel.grid(row=1,column=0,sticky="e",padx=10,pady=10)
-
-
-idLabel=Label(miFrame,text="Link:")
-idLabel.grid(row=2,column=0,sticky="e",padx=10,pady=10)
-
-idLabel=Label(miFrame,text="Desired price:")
-idLabel.grid(row=3,column=0,sticky="e",padx=10,pady=10)
-
-
-idLabel=Label(miFrame,text="Comments:")
-idLabel.grid(row=4,column=0,sticky="e",padx=10,pady=10)
-
-
-
-
-
-
-#---------------------------------- botones ---------------------------------#
-
-miFrame2=Frame(root)
-
-miFrame2.pack()
-
-botonCrear=Button(miFrame2,text="Create",command=create)
-botonCrear.grid(row=1,column=0,sticky="e",padx=10,pady=10)
-
-
-botonLeer=Button(miFrame2,text="Read",command=read)
-botonLeer.grid(row=1,column=1,sticky="e",padx=10,pady=10)
-
-
-botonActualizar=Button(miFrame2,text="Update",command=update)
-botonActualizar.grid(row=1,column=2,sticky="e",padx=10,pady=10)
-
-
-
-botonBorrar=Button(miFrame2,text="Delete",command=delete)
-botonBorrar.grid(row=1,column=3,sticky="e",padx=10,pady=10)
-
-
-
-botonTrackear=Button(miFrame2,text="Track_All",command=TrackAll)
-botonTrackear.grid(row=2,column=2,sticky="e",padx=10,pady=10)
-
-botonShow=Button(miFrame2,text="Show_All",command=showAll)
-botonShow.grid(row=2,column=1,sticky="e",padx=10,pady=10)
-
-#---------------------------------- Code to show ---------------------------------#
-
-miFrame3=Frame(root)
-
-miFrame3.pack()
-
-botonCrear=Button(miFrame2,text="Create",command=create)
-botonCrear.grid(row=1,column=0,sticky="e",padx=10,pady=10)
-
+    execute_query("DELETE FROM TRACKER WHERE NAME = ?", (miName.get(),))
+    messagebox.showinfo("Success", "Record deleted successfully!")
+    clean_fields()
+
+
+def show_all():
+    records = execute_query("SELECT NAME, PRICE FROM TRACKER")
+    result = "\n".join(f"Name: {rec[0]}, Desired Price: {rec[1]}" for rec in records)
+    messagebox.showinfo("Tracked Items", result or "No records found!")
+
+# -------------------- Price Tracking ---------------------- #
+
+def check_price(name, link, desired_price):
+    try:
+        page = requests.get(link, headers=HEADERS)
+        soup = BeautifulSoup(page.content, "lxml")
+        price_text = soup.find("span", class_="a-size-base a-color-price a-color-price").get_text()
+        converted_price = float(price_text.replace(",", ".").split()[0])
+        
+        if converted_price < float(desired_price):
+            messagebox.showinfo("Price Alert", f"{name} is now {converted_price}€! Email sent.")
+            send_mail(name, converted_price, link)
+        else:
+            messagebox.showinfo("Tracking", f"{name} is still above {desired_price}€.")
+    except Exception as e:
+        messagebox.showerror("Error", f"Price tracking failed: {e}")
+
+
+def send_mail(article, price, link):
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login("your-email@gmail.com", "your-app-password")
+        subject = "Price Drop Alert!"
+        body = f"{article} is now {price}€! Check the link: {link}"
+        message = f"Subject: {subject}\n\n{body}"
+        server.sendmail("your-email@gmail.com", "recipient-email@gmail.com", message)
+        server.quit()
+        print("Email sent successfully!")
+    except Exception as e:
+        print(f"Email failed: {e}")
+
+# -------------------- UI Setup ---------------------- #
+root = Tk()
+root.title("Price Tracker")
+
+menu = Menu(root)
+root.config(menu=menu)
+
+db_menu = Menu(menu, tearoff=0)
+db_menu.add_command(label="Connect", command=connect_db)
+db_menu.add_command(label="Exit", command=root.quit)
+menu.add_cascade(label="Database", menu=db_menu)
+
+frame = Frame(root)
+frame.pack()
+
+miName = StringVar()
+miPrice = StringVar()
+miLink = StringVar()
+
+Label(frame, text="Item Name:").grid(row=0, column=0)
+Entry(frame, textvariable=miName).grid(row=0, column=1)
+
+Label(frame, text="Link:").grid(row=1, column=0)
+Entry(frame, textvariable=miLink).grid(row=1, column=1)
+
+Label(frame, text="Desired Price:").grid(row=2, column=0)
+Entry(frame, textvariable=miPrice).grid(row=2, column=1)
+
+Label(frame, text="Comments:").grid(row=3, column=0)
+textoComment = Text(frame, width=25, height=5)
+textoComment.grid(row=3, column=1)
+
+Button(frame, text="Create", command=create).grid(row=4, column=0)
+Button(frame, text="Read", command=read).grid(row=4, column=1)
+Button(frame, text="Update", command=update).grid(row=5, column=0)
+Button(frame, text="Delete", command=delete).grid(row=5, column=1)
+Button(frame, text="Show All", command=show_all).grid(row=6, column=0, columnspan=2)
 
 root.mainloop()
